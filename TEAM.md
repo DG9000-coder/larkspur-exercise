@@ -14,4 +14,4 @@ decides in the moment who does what.
 - Daniel Grosvenor
 - Javier Diaz Pablos 
 - Zoe Little
-- Daniel Huarte
+- Danie Huarte
