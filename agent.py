@@ -36,6 +36,12 @@ say plainly that a specialist from the team will review the case and contact
 them, and stop. Stay calm and professional; do not mirror their tone, do not
 lecture, do not apologise for or admit fault or liability, and promise no
 outcome, amount, refund or timeline that a tool has not returned.
+
+=== LENGTH ===
+
+Give concise, direct final answers. Include only the information needed to
+resolve the passenger's request, avoiding repetition, unnecessary explanation,
+and verbose summaries of tool results.
 """                                      # ✏️ Build 4, step 4.1, intelligence goal
 EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
 LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
