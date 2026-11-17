@@ -16,7 +16,27 @@ from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
-TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
+TONE_ADDENDUM = """
+=== ABUSE AND LEGAL THREATS (policy CONV-01, CONV-02) ===
+
+Check the customer's message for these before anything else, on every turn.
+
+- Legal or regulatory threat (a lawyer, suing, court, a complaint to a regulator
+  or the DOT): this is no longer a normal disruption ticket. Do not argue or list
+  entitlements, do not offer options, and do not call issue_voucher, hold_seat or
+  confirm_rebooking. You may look up the booking so the hand-off is complete.
+  Then call escalate_to_human with queue "customer_relations_legal", the reason
+  "CONV-02 legal threat", and the customer's exact words quoted in
+  summary_for_human.
+- Abusive or threatening language: same hand-off, reason "CONV-01 abusive
+  language", queue "customer_relations". If both apply, cite both.
+
+After escalating, reply once, briefly: acknowledge that they are frustrated,
+say plainly that a specialist from the team will review the case and contact
+them, and stop. Stay calm and professional; do not mirror their tone, do not
+lecture, do not apologise for or admit fault or liability, and promise no
+outcome, amount, refund or timeline that a tool has not returned.
+"""                                      # ✏️ Build 4, step 4.1, intelligence goal
 EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
 LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
 
@@ -59,9 +79,17 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
     messages = [
         {"role": "user", "content": f"PNR {pnr}, last name {last_name}. {message}"},
     ]
+    # Cost lever: the prefix is tools -> system. The stable part (tools + prompt +
+    # addendum) is cached; the clock line changes every second, so it goes after
+    # the breakpoint instead of in front of it. Messages and tool results are not cached.
+    system = [
+        {"type": "text", "text": SYSTEM_PROMPT + TONE_ADDENDUM,
+         "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": runtime_preamble()},
+    ]
 
     response = client.messages.create(
-        model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
+        model=MODEL, max_tokens=4096, system=system,
         thinking={"type": "adaptive"}, tools=tools, messages=messages,
     )
 
@@ -70,7 +98,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results(response)})
         response = client.messages.create(
-            model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
+            model=MODEL, max_tokens=4096, system=system,
             thinking={"type": "adaptive"}, tools=tools, messages=messages,
         )
         turns += 1
@@ -188,7 +216,9 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             "description": (
                 "Issue a meal, ground, hotel, or goodwill voucher. Auto-approves within the "
                 "policy's threshold for that type; above it, returns a pending status for a "
-                "human. It does not fail. Always pass the policy_row_id that made it eligible."
+                "human. It does not fail. Always pass the policy_row_id that made it eligible. "
+                "Never use it when the customer has threatened legal action or been abusive; "
+                "that conversation goes to escalate_to_human instead."
             ),
             "input_schema": {
                 "type": "object",
@@ -206,7 +236,10 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             "description": (
                 "Hand this conversation to a human, with your reasoning attached. Use for "
                 "groups, partner segments, unaccompanied minors, refunds, or anything else "
-                "out of scope. This is the correct outcome for those cases, not a failure."
+                "out of scope. Also mandatory, before any voucher or rebooking, when the "
+                "customer threatens legal or regulatory action (CONV-02) or uses abusive or "
+                "threatening language (CONV-01): quote their words verbatim in "
+                "summary_for_human. This is the correct outcome for those cases, not a failure."
             ),
             "input_schema": {
                 "type": "object",
