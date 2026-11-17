@@ -174,7 +174,9 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "what get_flight_status told you; fare_family, loyalty_tier and whether this "
                 "is overnight are looked up from the booking, not asked of you. Every "
                 "response carries a policy_row_id. Cite it if you reference this decision "
-                "again."
+                "again. When you tell the customer about an option the row allows, state "
+                "every condition in its 'conditions' field (including seat availability) "
+                "as a condition the option depends on, never as a given."
             ),
             "input_schema": {
                 "type": "object",
